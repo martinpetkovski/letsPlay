@@ -1,0 +1,194 @@
+class Vector2D<T>
+{
+    public T X { get; set; }
+    public T Y { get; set; }
+
+    public Vector2D(T X, T Y)
+    {
+        this.X = X;
+        this.Y = Y;
+    }
+}
+
+class Matrix<T>
+{
+    private List<T> _matrix { get; set; }
+    private Vector2D<int> _size { get; set; }
+
+    public T DefaultItem { get; set; }
+
+    public Vector2D<int> Size
+    {
+        get
+        {
+            return this._size;
+        }
+        set
+        {
+            this._size = value;
+        }
+    }
+
+    private int TransformIndices(int X, int Y)
+    {
+        return Y * _size.X + X;
+    }
+
+    private int TI(int X, int Y)
+    {
+        return TransformIndices(X, Y); 
+    }
+
+    public Matrix(int sizeX, int sizeY, T defaultItem)
+    {
+        this._size = new Vector2D<int>(sizeX, sizeY);
+        this._matrix = new List<T>();
+        DefaultItem = defaultItem;
+
+        for (int i = 0; i <= sizeX * sizeY; i++)
+            _matrix.Insert(i, DefaultItem);
+    }
+
+    public T Get(int X, int Y)
+    {
+        return Get(new Vector2D<int>(X, Y));
+    }
+
+    public T Get(Vector2D<int> index)
+    {
+        return _matrix.ElementAt(TI(index.X, index.Y));
+    }
+
+    public void SetElementAt(int X, int Y, T item)
+    {
+        SetElementAt(new Vector2D<int>(X, Y), item);
+    }
+
+    public void SetElementAt(Vector2D<int> index, T item)
+    {
+        _matrix.RemoveAt(TI(index.X, index.Y));
+        _matrix.Insert(TI(index.X, index.Y), item);
+    }
+
+    public void InsertRows(int n)
+    {
+        InsertRows(n, DefaultItem);
+    }
+
+    public void InsertColumns(int n)
+    {
+        InsertColumns(n, DefaultItem);
+    }
+
+    public void InsertRows(int n, T defaultItem)
+    {
+        for (int i = _size.X * _size.Y; i < (_size.X * _size.Y) + n * _size.X; i++)
+        {
+            try { _matrix.Insert(i, defaultItem); }
+            catch (ArgumentOutOfRangeException) { _matrix.Add(defaultItem); }
+        }
+        _size.Y += n;
+    }
+
+    public void InsertColumns(int n, T defaultItem)
+    {
+        for (int i = 0; i < _size.Y; i++)
+        {
+            for (int j = 0; j < n; j++)
+            {
+                try { _matrix.Insert(_size.X + i*(_size.X+n), defaultItem); }
+                catch (ArgumentOutOfRangeException) { _matrix.Add(DefaultItem); }
+            }
+        }
+        _size.X += n;
+    }
+
+    private List<int> GetRowIndices(int rowIndex)
+    {
+        List<int> t = new List<int>();
+        for (int i = 0; i < _size.X; i++)
+            t.Add(rowIndex * _size.X + i);
+
+        return t;
+    }
+
+    private List<T> GetRowItems(int rowIndex)
+    {
+        List<T> t = new List<T>();
+        for (int i = 0; i < _size.X; i++)
+            t.Add(_matrix.ElementAt(rowIndex * _size.X + i));
+
+        return t;
+    }
+
+    private List<int> GetColumnIndices(int columnIndex)
+    {
+        List<int> t = new List<int>();
+        for (int i = 0; i < _size.Y; i++)
+            t.Add(i * _size.X + columnIndex);
+
+        return t;
+    }
+
+    private List<T> GetColumnItems(int columnIndex)
+    {
+        List<T> t = new List<T>();
+        for (int i = 0; i < _size.Y; i++)
+            t.Add(_matrix.ElementAt(i * _size.X + columnIndex));
+
+        return t;
+    }
+
+    private void RemoveIndices(List<int> indicesToRemove)
+    {
+        foreach (int index in indicesToRemove)
+            _matrix.RemoveAt(index);
+    }
+
+    private void RemoveItems(List<T> itemsToRemove)
+    {
+        foreach (T item in itemsToRemove)
+            _matrix.Remove(_matrix.Find(x=> x.GetHashCode() == item.GetHashCode()));
+    }
+
+    public void RemoveRow(int rowIndex)
+    {
+        RemoveItems(GetRowItems(rowIndex));
+        _size.Y--;
+    }
+
+    public void RemoveColumn(int columnIndex)
+    {
+        RemoveItems(GetColumnItems(columnIndex));
+        _size.X--;
+    }
+
+    public void Swap(Vector2D<int> index1, Vector2D<int> index2)
+    {
+        T item1 = Get(index1);
+        T item2 = Get(index2);
+
+        SetElementAt(index2, item1);
+        SetElementAt(index1, item2);
+    }
+
+    public void DEBUG_DumpToOutput()
+    {
+        Debug.WriteLine(this.GetHashCode() + "\n" + this.ToString());
+    }
+
+    public override string ToString()
+    {
+        string converted = "\n";
+        for (int j = 0; j < _size.Y; j++)
+        {
+            for (int i = 0; i < _size.X; i++)
+            {
+                converted += Get(i,j) + " ";
+            }
+            converted += '\n';
+        }
+
+        return converted;
+    }
+}
