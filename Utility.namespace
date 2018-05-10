@@ -193,14 +193,6 @@ class Matrix<T>
         return sum;
     }
 
-
-    public static string GenerateReliableHash<T>(T item)
-    {
-        MD5 md5Hasher = MD5.Create();
-        return BitConverter.ToString(md5Hasher.ComputeHash(Encoding.UTF8.GetBytes(item.ToString())));
-    }
-
-
     public void Swap(Vector2D<Int32> index1, Vector2D<Int32> index2)
     {
         T item1 = Get(index1);
