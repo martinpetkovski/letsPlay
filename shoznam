@@ -1,0 +1,758 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using WPFLab.Controls;
+
+namespace WPFLab.Utility
+{
+    public enum SnapperDirection 
+    {
+        TOP,
+        RIGHT,
+        BOTTOM,
+        LEFT
+    }
+
+    public enum SnapperQuadrant
+    {
+        ONE,
+        TWO,
+        THREE,
+        FOUR
+    }
+    public class Snapper
+    {
+        private static List<AlatoSpecialControl> changeList;
+        private Canvas canvas { get; set; }
+        public List<AlatoSpecialControl> top { get; set; }
+        public List<AlatoSpecialControl> right { get; set; }
+        public List<AlatoSpecialControl> bottom { get; set; }
+        public List<AlatoSpecialControl> left { get; set; }
+        public Snapper(Canvas c)
+        {
+            canvas = c;
+            top = new List<AlatoSpecialControl>();
+            right = new List<AlatoSpecialControl>();
+            bottom = new List<AlatoSpecialControl>();
+            left = new List<AlatoSpecialControl>();
+
+            if (changeList == null)
+                changeList = new List<AlatoSpecialControl>();
+        }
+
+        public void Snap(SnapperDirection sd, AlatoSpecialControl element)
+        {
+            switch(sd)
+            {
+                case SnapperDirection.TOP:
+                    top.Add(element);
+                    break;
+                case SnapperDirection.RIGHT:
+                    right.Add(element);
+                    break;
+                case SnapperDirection.BOTTOM:
+                    bottom.Add(element);
+                    break;
+                case SnapperDirection.LEFT:
+                    left.Add(element);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        public void Clear()
+        {
+            top.Clear();
+            right.Clear();
+            bottom.Clear();
+            left.Clear();
+            changeList.Clear();
+        }
+
+        private static bool checkSnapIndex(int snapIndex1, int snapIndex2)
+        {
+            if (snapIndex1 == 0 && snapIndex2 == 2)
+                return true;
+            else if (snapIndex1 == 1 && snapIndex2 == 3)
+                return true;
+            else if (snapIndex2 == 0 && snapIndex1 == 2)
+                return true;
+            else if (snapIndex2 == 1 && snapIndex1 == 3)
+                return true;
+            else
+                return false;
+        }
+
+        public static void UpdateSnaps(Canvas c)
+        { 
+            foreach (Object asc in c.Children)
+            {
+                if(asc is AlatoSpecialControl)
+                    ((AlatoSpecialControl)asc).snapper.Clear();
+            }
+
+            foreach (Object asc1o in c.Children)
+            {
+                AlatoSpecialControl asc1 = null;
+                if (asc1o is AlatoSpecialControl)
+                    asc1 = (AlatoSpecialControl)asc1o;
+                else continue;
+
+                foreach (Object asc2o in c.Children)
+                {
+                    AlatoSpecialControl asc2 = null;
+                    if (asc2o is AlatoSpecialControl)
+                        asc2 = (AlatoSpecialControl)asc2o;
+                    else continue;
+
+                    if (asc1 == asc2)
+                        continue;
+
+                    int snapIndex1 = 0;
+                    foreach (System.Drawing.Rectangle snapBoundAsc1 in asc1.snapBounds)
+                    {
+                        int snapIndex2 = 0;
+                        foreach (System.Drawing.Rectangle snapBoundAsc2 in asc2.snapBounds)
+                        {
+                            if (snapBoundAsc1.IntersectsWith(snapBoundAsc2) && checkSnapIndex(snapIndex1, snapIndex2))
+                            {
+                                switch (snapIndex2)
+                                {
+                                    case (int)SnapperDirection.RIGHT:
+                                        asc1.snapper.Snap(SnapperDirection.LEFT, asc2);
+                                        asc2.snapper.Snap(SnapperDirection.RIGHT, asc1);
+                                        break;
+                                    case (int)SnapperDirection.BOTTOM:
+                                        asc1.snapper.Snap(SnapperDirection.TOP, asc2);
+                                        asc2.snapper.Snap(SnapperDirection.BOTTOM, asc1);
+                                        break;
+                                    case (int)SnapperDirection.TOP:
+                                        asc1.snapper.Snap(SnapperDirection.BOTTOM, asc2);
+                                        asc2.snapper.Snap(SnapperDirection.TOP, asc1);
+                                        break;
+                                    case (int)SnapperDirection.LEFT:
+                                        asc1.snapper.Snap(SnapperDirection.RIGHT, asc2);
+                                        asc2.snapper.Snap(SnapperDirection.LEFT, asc1);
+                                        break;
+                                    default:
+                                        break;
+                                }
+                                goto skipAdditionalIntersects;
+                            }
+                            snapIndex2++;
+                        }
+                        snapIndex1++;
+                    }
+
+                skipAdditionalIntersects:;
+                }
+            }
+        }
+
+        private bool ic(AlatoSpecialControl e) // is not in changelist
+        {
+            return !changeList.Contains(e);
+        }
+
+        public void Offset(AlatoSpecialControl asc, SnapperQuadrant sq, int offset)
+        {
+            changeList.Clear();
+
+            if(sq == SnapperQuadrant.ONE)
+            {
+                foreach (AlatoSpecialControl element in top)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.TOP, sq, offset);
+                    }
+                }
+                
+                foreach (AlatoSpecialControl element in right)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.RIGHT, sq, offset);
+                    }
+                }                    
+            }
+
+            else if(sq == SnapperQuadrant.TWO)
+            {
+                foreach (AlatoSpecialControl element in top)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.TOP, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in left)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.LEFT, sq, offset);
+                    }
+                }
+            }
+
+            else if (sq == SnapperQuadrant.THREE)
+            {
+                foreach (AlatoSpecialControl element in bottom)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.BOTTOM, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in left)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.LEFT, sq, offset);
+                    }
+                }
+            }
+
+            else if (sq == SnapperQuadrant.FOUR)
+            {
+                foreach (AlatoSpecialControl element in bottom)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.BOTTOM, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in right)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, SnapperDirection.RIGHT, sq, offset);
+                    }
+                }
+            }
+        }
+
+        public void Offset(AlatoSpecialControl asc, SnapperDirection sd, SnapperQuadrant sq, int offset)
+        {
+            if (sd == SnapperDirection.TOP)
+            {
+                foreach (AlatoSpecialControl element in top)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in left)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in right)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+            }
+
+            else if(sd == SnapperDirection.RIGHT)
+            {
+                foreach(AlatoSpecialControl element in right)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in top)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in bottom)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+            }
+
+            else if(sd == SnapperDirection.BOTTOM)
+            {
+                foreach(AlatoSpecialControl element in bottom)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in left)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in right)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetTop((FrameworkElement)element, Canvas.GetTop((FrameworkElement)element) + offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+            }
+
+            else if(sd == SnapperDirection.LEFT)
+            {
+                foreach(AlatoSpecialControl element in left)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in top)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+
+                foreach (AlatoSpecialControl element in bottom)
+                {
+                    if (ic(element))
+                    {
+                        Canvas.SetLeft((FrameworkElement)element, Canvas.GetLeft((FrameworkElement)element) - offset);
+                        changeList.Add(element);
+                        element.snapper.Offset(element, sd, sq, offset);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+$$$
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using WPFLab.Utility;
+
+namespace WPFLab.Controls
+{
+    public interface AlatoSpecialControl
+    {
+        Snapper snapper { get; set; }
+        List<System.Drawing.Rectangle> snapBounds { get; set; }
+
+        void changeDimensions();
+    }
+}
+
+
+$$$
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using WPFLab.Utility;
+
+namespace WPFLab.Controls
+{
+    public class AlatoGridGroup : Expander, AlatoSpecialControl
+    {
+        private Point matrixLocation;
+        public static AlatoGridGroup selected;
+
+        private List<System.Windows.Shapes.Rectangle> myRects;
+
+        private Canvas parent;
+
+        public bool IsSelected { get; set; }
+        public Point MatrixLocation
+        {
+            get
+            {
+                return this.matrixLocation;
+            }
+            set
+            {
+                this.matrixLocation = value;
+                Grid.SetColumn(this, (int)this.matrixLocation.X);
+                Grid.SetRow(this, (int)this.matrixLocation.Y);
+            }
+        }
+        public Point MatrixSpan { get; set; }
+
+        public Snapper snapper { get; set; }
+
+        public List<System.Drawing.Rectangle> snapBounds
+        {
+            get;
+            set;
+        }
+
+        System.Windows.Shapes.Rectangle createRect(SnapperDirection sd)
+        {
+            System.Windows.Shapes.Rectangle rc1 = new System.Windows.Shapes.Rectangle();
+            rc1.Width = snapBounds[(int)sd].Width;
+            rc1.Height = snapBounds[(int)sd].Height;
+            Canvas.SetTop(rc1, snapBounds[(int)sd].Y);
+            Canvas.SetLeft(rc1, snapBounds[(int)sd].X);
+            rc1.Fill = Brushes.DarkCyan;
+            Canvas.SetZIndex(rc1, 1);
+            return rc1;
+        }
+
+        public void changeDimensions()
+        {
+            changeDimensions((int)this.Height, (int)this.Width, (int)Canvas.GetLeft(this), (int)Canvas.GetTop(this), false);
+        }
+
+        public void changeDimensions(int X, int Y, int lX, int lY, bool changeSnaps = true)
+        {
+            foreach(System.Windows.Shapes.Rectangle r in myRects)
+            {
+                parent.Children.Remove(r);
+            }
+
+            myRects.Clear();
+
+            this.Height = X;
+            this.Width = Y;
+
+            float extentScaleX = 0.2f;
+            float extentScaleY = 0.2f;
+
+            snapBounds[(int)SnapperDirection.TOP] = new System.Drawing.Rectangle(new System.Drawing.Point((int)(lX), (int)(lY - (extentScaleY*this.Height))), new System.Drawing.Size((int)this.Width, (int)(extentScaleY*this.Height)));
+            snapBounds[(int)SnapperDirection.RIGHT] = new System.Drawing.Rectangle(new System.Drawing.Point((int)(lX + (this.Width - this.Height * extentScaleX) + extentScaleX * this.Width), (int)(lY)), new System.Drawing.Size((int)(extentScaleX*this.Width), (int)this.Height));
+            snapBounds[(int)SnapperDirection.BOTTOM] = new System.Drawing.Rectangle(new System.Drawing.Point((int)(lX), (int)(lY + (this.Height - this.Height * extentScaleY) + (extentScaleY*this.Height))), new System.Drawing.Size((int)this.Width, (int)(extentScaleY*this.Height)));
+            snapBounds[(int)SnapperDirection.LEFT] = new System.Drawing.Rectangle(new System.Drawing.Point((int)(lX - extentScaleX*this.Width), (int)(lY)), new System.Drawing.Size((int)(extentScaleX*this.Width), (int)this.Height));
+
+            myRects.Add(createRect(SnapperDirection.TOP));
+            myRects.Add(createRect(SnapperDirection.RIGHT));
+            myRects.Add(createRect(SnapperDirection.BOTTOM));
+            myRects.Add(createRect(SnapperDirection.LEFT));
+
+            foreach (System.Windows.Shapes.Rectangle r in myRects)
+            {
+                parent.Children.Add(r);
+            }
+
+            if(changeSnaps)
+                Snapper.UpdateSnaps(parent);
+        }
+
+        public void Construct(Canvas c, Point gridPosition)
+        {
+            this.IsExpanded = false;
+            this.Focusable = true;
+
+            parent = c;
+
+            snapper = new Snapper(c);
+            myRects = new List<System.Windows.Shapes.Rectangle>();
+
+            TextBlock id = new TextBlock();
+            id.Text = gridPosition.ToString();
+
+            this.AddChild(id);
+
+            Canvas.SetTop(this, gridPosition.Y);
+            Canvas.SetLeft(this, gridPosition.X);
+            Canvas.SetBottom(this, c.Height - gridPosition.Y);
+            Canvas.SetRight(this, c.Width - gridPosition.X);
+            Canvas.SetZIndex(this, 2);
+
+            snapBounds = new List<System.Drawing.Rectangle>();
+
+            snapBounds.Add(new System.Drawing.Rectangle());
+            snapBounds.Add(new System.Drawing.Rectangle());
+            snapBounds.Add(new System.Drawing.Rectangle());
+            snapBounds.Add(new System.Drawing.Rectangle());
+
+            c.Children.Add(this);
+
+            changeDimensions(100, 100, (int)gridPosition.X, (int)gridPosition.Y);
+
+            this.BorderThickness = new Thickness(3);
+            this.Background = Brushes.AliceBlue;
+
+            this.MouseLeftButtonDown += (a, b) => selectGridGroup(this);
+            this.KeyDown += (a, b) => handleKeyPress();
+
+            this.ContextMenu = new ContextMenu();
+
+            MenuItem attachTop = new MenuItem();
+            attachTop.Header = "Attach Selected Top";
+            attachTop.Click += (a, b) => attachToSelected(SnapperDirection.TOP);
+
+            MenuItem attachRight = new MenuItem();
+            attachRight.Header = "Attach Selected Right";
+            attachRight.Click += (a, b) => attachToSelected(SnapperDirection.RIGHT);
+
+            MenuItem attachBottom = new MenuItem();
+            attachBottom.Header = "Attach Selected Bottom";
+            attachBottom.Click += (a, b) => attachToSelected(SnapperDirection.BOTTOM);
+
+            MenuItem attachLeft = new MenuItem();
+            attachLeft.Header = "Attach Slected Left";
+            attachLeft.Click += (a, b) => attachToSelected(SnapperDirection.LEFT);
+
+            this.Expanded += (a, b) => Expand();
+            this.Collapsed += (a, b) => Collapse();
+
+            this.ContextMenu.Items.Add(attachTop);
+            this.ContextMenu.Items.Add(attachRight);
+            this.ContextMenu.Items.Add(attachBottom);
+            this.ContextMenu.Items.Add(attachLeft);
+        }
+
+        private void Expand()
+        {
+            snapper.Offset(this, SnapperQuadrant.FOUR, 100);
+            changeDimensions(200, 200, (int)Canvas.GetLeft(this), (int)Canvas.GetTop(this), false);
+
+            //Snapper.UpdateSnaps(parent);
+
+            
+            for (int i = 0; i < parent.Children.Count; i++)    
+            {
+                Object asco = parent.Children[i];
+                if (asco is AlatoSpecialControl)
+                {
+                    AlatoSpecialControl asc = (AlatoSpecialControl)asco;
+                    asc.changeDimensions();
+                }
+            }
+
+            
+
+        }
+
+        private void Collapse()
+        {
+            snapper.Offset(this, SnapperQuadrant.FOUR, -100);
+            changeDimensions(100, 100, (int)Canvas.GetLeft(this), (int)Canvas.GetTop(this), false);
+
+            //Snapper.UpdateSnaps(parent);
+
+            for (int i = 0; i < parent.Children.Count; i++)
+            {
+                Object asco = parent.Children[i];
+                if (asco is AlatoSpecialControl)
+                {
+                    AlatoSpecialControl asc = (AlatoSpecialControl)asco;
+                    asc.changeDimensions();
+                }
+            }            
+        }
+
+        private void attachToSelected(SnapperDirection attachLocation)
+        {
+            if(this != selected)
+                selected.snapper.Snap(attachLocation, this);
+        }
+        
+        public AlatoGridGroup(Canvas c, Point gridPosition)
+        {
+            Construct(c, gridPosition);
+        }
+
+        public void moveGroup(Point gridLocation)
+        {
+            MatrixLocation = gridLocation;
+        }
+        public static void swapGroup(AlatoGridGroup agg1, AlatoGridGroup agg2)
+        {
+            Point tempPoint = agg1.MatrixLocation;
+            agg1.MatrixLocation = agg2.MatrixLocation;
+            agg2.MatrixLocation = tempPoint;
+        }
+
+        public void selectGridGroup(AlatoGridGroup selec)
+        {
+            if (selec.IsSelected)
+            {
+                selec.IsSelected = false;
+                AlatoGridGroup.selected = null;
+                selec.BorderBrush = System.Windows.Media.Brushes.Black;
+            }
+            else
+            {
+                if (AlatoGridGroup.selected == null)
+                {
+                    selec.IsSelected = true;
+                    AlatoGridGroup.selected = selec;
+                    selec.BorderBrush = System.Windows.Media.Brushes.Red;
+                }
+                else
+                {
+                    this.BorderBrush = System.Windows.Media.Brushes.Black;
+                    AlatoGridGroup.selected.BorderBrush = System.Windows.Media.Brushes.Black;
+                    AlatoGridGroup.swapGroup(this, AlatoGridGroup.selected);
+                    this.IsSelected = false;
+                    AlatoGridGroup.selected.IsSelected = false;
+                    AlatoGridGroup.selected = null;
+                }
+            }
+        }
+
+        private void handleKeyPress()
+        {
+            if (Keyboard.IsKeyDown(Key.Delete))
+                deleteGridGroup();
+                
+        }
+
+        public void deleteGridGroup()
+        {
+            ((Canvas)(VisualTreeHelper.GetParent(this))).Children.Remove(this);
+        }
+    }
+}
+
+$$$
+
+using System;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
+using WPFLab.Controls;
+
+namespace WPFLab
+{
+    /// <summary>
+    /// Int32eraction logic for MainWindow.xaml
+    /// </summary>
+    public partial class MainWindow : Window
+    {
+        private AlatoGrid ag;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            //Utility.Matrix<Int32> m = new Utility.Matrix<Int32>(1, 10, 0);
+            //Debug.Write("Initialized. ");
+            //m.DEBUG_DumpToOutput();
+
+            //m.InsertColumns(1, 1);
+            //m.InsertColumns(1, 2);
+            //m.InsertColumns(1, 3);
+            //m.InsertColumns(1, 4);
+            //m.InsertColumns(1, 5);
+            //m.InsertColumns(1, 6);
+            //m.InsertColumns(1, 7);
+            //m.InsertColumns(1, 8);
+            //m.InsertColumns(1, 9);
+            //m.InsertColumns(1, 0);
+            //m.InsertColumns(1, 1);
+            //m.DEBUG_DumpToOutput();
+
+            //m.RemoveColumn(7);
+            //m.RemoveRow(2);
+            //m.DEBUG_DumpToOutput();
+
+            //Debug.WriteLine("------" + Utility.Matrix<Int32>.SumRowToItem(m, m.Get(5, 5)));
+
+            Point cursorPos = new Point();
+        }
+
+        void createSpecialAlatoControl(Canvas c)
+        {
+            new AlatoGridGroup(c, cursorPos);
+        }
+
+        public Point cursorPos;
+
+        private void setCursorPosition(Canvas c)
+        {
+            cursorPos = Mouse.GetPosition(c);
+        }
+
+        private void mainGrid_Initialized(object sender, EventArgs e)
+        {
+            Canvas thecanvas = (Canvas)sender;
+
+            MenuItem addNewAlatoSpecialControlMenu = new MenuItem();
+            addNewAlatoSpecialControlMenu.Header = "Add New Alato Special Control";
+            addNewAlatoSpecialControlMenu.Click += (a, b) => createSpecialAlatoControl(thecanvas);
+
+            thecanvas.ContextMenu = new ContextMenu();
+            thecanvas.ContextMenu.Opened += (a, b) => setCursorPosition(thecanvas);
+            thecanvas.ContextMenu.Items.Add(addNewAlatoSpecialControlMenu);
+        }
+    }
+}
